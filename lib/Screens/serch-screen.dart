@@ -201,7 +201,9 @@ class SearchScreenState extends State<SearchScreen> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             ElevatedButton(
-                              onPressed: () {},
+                              onPressed: () {
+                                Navigator.of(context).pop();
+                              },
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.blueAccent,
                                 shape: RoundedRectangleBorder(
@@ -212,7 +214,9 @@ class SearchScreenState extends State<SearchScreen> {
                               child: Text('        Lock        ', style: TextStyle(fontSize: 14, color: Colors.white,fontWeight: FontWeight.bold)),
                             ),
                             ElevatedButton(
-                              onPressed: () {},
+                              onPressed: () {
+                                Navigator.of(context).pop();
+                              },
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.green,
                                 shape: RoundedRectangleBorder(
@@ -229,17 +233,34 @@ class SearchScreenState extends State<SearchScreen> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             ElevatedButton(
-                              onPressed: () {
-
+                              onPressed: () async {
                                 if (index < newDevices.length) {
-                                  getUninstallCode(imei, index);
+                                  try {
+                                    await getUninstallCode(imei, index); // Call API for new device
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text("Uninstall code generated for new device")),
+                                    );
+                                  } catch (e) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text("Failed to generate uninstall code for new device")),
+                                    );
+                                    print("Error: $e");
+                                  }
                                 } else if (index < newDevices.length + oldDevices.length) {
                                   int oldIndex = index - newDevices.length;
-                                  getUninstallCodeOld(phone, oldIndex);
+                                  try {
+                                    await getUninstallCodeOld(phone, oldIndex); // Call API for old device
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text("Uninstall code generated for old device")),
+                                    );
+                                  } catch (e) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text("Failed to generate uninstall code for old device")),
+                                    );
+                                    print("Error: $e");
+                                  }
                                 }
-                                Navigator.of(context).pop();
-                                print("New :${newDevices[index].uninstallcode}");
-                                print(oldDevices[index].olduninstallcode);// Close the dialog
+                                Navigator.of(context).pop(); // Close the dialog
                               },
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.green,
@@ -271,7 +292,9 @@ class SearchScreenState extends State<SearchScreen> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             ElevatedButton(
-                              onPressed: () {},
+                              onPressed: () {
+                                Navigator.of(context).pop();
+                              },
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.blueAccent,
                                 shape: RoundedRectangleBorder(
@@ -282,7 +305,9 @@ class SearchScreenState extends State<SearchScreen> {
                               child: Text('       Claim       ', style: TextStyle(fontSize: 14, color: Colors.white,fontWeight: FontWeight.bold)),
                             ),
                             ElevatedButton(
-                              onPressed: () {},
+                              onPressed: () {
+                                Navigator.of(context).pop();
+                              },
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.green,
                                 shape: RoundedRectangleBorder(
