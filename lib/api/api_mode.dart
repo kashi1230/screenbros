@@ -6,6 +6,7 @@ class Device {
    int uninstallcode;
   int oldunlockcode;
   int olduninstallcode;
+  final String appType;
 
   Device({
     required this.imei,
@@ -15,6 +16,7 @@ class Device {
     required this.uninstallcode,
     required this.oldunlockcode,
     required this.olduninstallcode,
+    required this.appType,
 
   });
 
@@ -23,6 +25,7 @@ class Device {
       imei: json['imei'],
       name: json['name'],
       mobile: json['mobile'],
+      appType: json['apptype'],
       unlockcode: 0,
       uninstallcode: 0,
       oldunlockcode: 0,
