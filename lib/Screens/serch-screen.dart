@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:screenbroz2/Screens/Login_Screen.dart';
 import 'package:screenbroz2/Widgets/TextBuilder.dart';
 import 'dart:convert';
-import 'package:screenbroz2/api/api_calling.dart';
 import 'package:screenbroz2/api/api_mode.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
@@ -109,33 +108,30 @@ class SearchScreenState extends State<SearchScreen> {
 
 
   Future<void> _getLUcode(
-      String endpoint, String identifier, int index, bool isOldDevice,apptype) async {
+      String endpoint, String identifier, int index, bool isOldDevice,apptype, String action) async {
     final response = await http.post(
       Uri.parse(baseUrl + endpoint),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode(
-          isOldDevice ? {'phone': identifier} : {'imei': identifier}),
+          isOldDevice ? {'phone': identifier,'action':action } : {'imei': identifier}),
     );
 
     if (response.statusCode == 200) {
       var data = jsonDecode(response.body);
+      print(data);
       if (data['status'] == 'success') {
         setState(() {
           if (isOldDevice) {
-            if (endpoint.contains('Uninstall')) {
-              oldDevices[index].olduninstallcode = data["uninstallcode"];
-              print("${oldDevices[index].uninstallcode} old unistall");
+            if (endpoint.contains('oldDeviceNotification')) {
+              print(" old Ulock Code");
             } else {
-              oldDevices[index].oldunlockcode = data["unlockcode"];
-              print("${oldDevices[index].unlockcode} old unlock");
+              print(" old Lock");
             }
           } else {
-            if (endpoint.contains('Uninstall')) {
-              newDevices[index].uninstallcode = data["uninstallcode"];
-              print("${newDevices[index].uninstallcode}new unistall");
+            if (endpoint.contains('oldDeviceNotification')) {
+              print("new Unlock Code");
             } else {
-              newDevices[index].unlockcode = data["unlockcode"];
-              print("${newDevices[index].unlockcode} new unlock");
+              print("New Lock Code");
             }
           }
         });
@@ -144,7 +140,7 @@ class SearchScreenState extends State<SearchScreen> {
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load code')),
+          SnackBar(content: Text('Failed to load LOck Ulock code')),
         );
       }
     } else {
@@ -153,7 +149,7 @@ class SearchScreenState extends State<SearchScreen> {
   }
 
   void showActionDialog(BuildContext context, int index, bool isOldDevice,
-      String identifier1, String identifire2,apptype) {
+      String identifier1, String identifire2,apptype,) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -195,11 +191,14 @@ class SearchScreenState extends State<SearchScreen> {
                       ),
                       ElevatedButton(
                         onPressed: () {
-                          _getLUcode(isOldDevice || apptype == "SCAN"?'oldDeviceNotification.php': 'testlock.php' ,
-                              isOldDevice?identifier1:identifire2,
+                          _getLUcode(
+                              isOldDevice || apptype == "SCAN"  ? 'oldDeviceNotification.php': apptype == "ZT" ? 'testlock.php':"oldDeviceNotification.php" ,
+                              isOldDevice ? identifier1:identifire2,
                               index,
                               isOldDevice,
-                              apptype);
+                          apptype,
+                            "UNLOCK"
+                          );
                           Navigator.of(context).pop();
                         },
                         style: ElevatedButton.styleFrom(
