@@ -1,26 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:screenbroz2/Screens/Login_Screen.dart';
 import 'package:screenbroz2/Widgets/TextBuilder.dart';
+import 'package:screenbroz2/api/api_calling.dart';
 import 'dart:convert';
 import 'package:screenbroz2/api/api_mode.dart';
+import 'package:screenbroz2/search-const/const.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 
 class SearchScreen extends StatefulWidget {
+  const SearchScreen({super.key});
+
   @override
   SearchScreenState createState() => SearchScreenState();
 }
 
 class SearchScreenState extends State<SearchScreen> {
-  TextEditingController _searchController = TextEditingController();
-  List<Device> oldDevices = [];
-  List<Device> newDevices = [];
-  bool isLoading = false;
-  String baseUrl = 'https://www.screenbros.in/employeeapi/';
-
+  final TextEditingController _searchController = TextEditingController();
   Future<void> _searchItems(String query) async {
     setState(() {
       isLoading = true;
+      isFirstVisit = false;
     });
 
     if (query.isEmpty) {
@@ -32,35 +32,33 @@ class SearchScreenState extends State<SearchScreen> {
       return;
     }
 
-    final response = await http.post(
-      Uri.parse('${baseUrl}search_device.php'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'search': query}),
-    );
+    try {
+      final response = await DeviceAPIManager.searchDevices(query);
 
-    if (response.statusCode == 200) {
-      var data = jsonDecode(response.body);
       setState(() {
-        oldDevices = data['old'] != null
-            ? (data['old'] as List)
-                .map((item) => Device.fromJson(item))
-                .toList()
+        oldDevices = response['old'] != null
+            ? (response['old'] as List)
+            .map((item) => Device.fromJson(item))
+            .toList()
             : [];
-        newDevices = data['new'] != null
-            ? (data['new'] as List)
-                .map((item) => Device.fromJson(item))
-                .toList()
+        newDevices = response['new'] != null
+            ? (response['new'] as List)
+            .map((item) => Device.fromJson(item))
+            .toList()
             : [];
         isLoading = false;
       });
-      print(data);
-    } else {
+    } catch (e) {
       setState(() {
         isLoading = false;
       });
-      throw Exception('Failed to load data');
+      print('Error: $e');
+      // ScaffoldMessenger.of(context).showSnackBar(
+      //   SnackBar(content: Text('Failed to load data')),
+      // );
     }
   }
+
   Future<void> _getCode(
       String endpoint, String identifier, int index, bool isOldDevice) async {
     final response = await http.post(
@@ -73,32 +71,37 @@ class SearchScreenState extends State<SearchScreen> {
     if (response.statusCode == 200) {
       var data = jsonDecode(response.body);
       if (data['status'] == 'success') {
-        print(data);
         setState(() {
           if (isOldDevice) {
             if (endpoint.contains('Uninstall')) {
               oldDevices[index].olduninstallcode = data["uninstallcode"];
-              print("${oldDevices[index].uninstallcode} old unistall");
+              ScaffoldMessenger.of(context)
+                  .showSnackBar(const SnackBar(content: Text('Old Unistall')));
             } else {
               oldDevices[index].oldunlockcode = data["unlockcode"];
-              print("${oldDevices[index].unlockcode} old unlock");
+              ScaffoldMessenger.of(context)
+                  .showSnackBar(const SnackBar(content: Text('Old Unlock')));
             }
           } else {
             if (endpoint.contains('Uninstall')) {
               newDevices[index].uninstallcode = data["uninstallcode"];
-              print("${newDevices[index].uninstallcode}new unistall");
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('New Unistall')),
+              );
             } else {
               newDevices[index].unlockcode = data["unlockcode"];
-              print("${newDevices[index].unlockcode} new unlock");
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('New Unlock')),
+              );
             }
           }
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Code retrieved successfully')),
-        );
+        // ScaffoldMessenger.of(context).showSnackBar(
+        //   SnackBar(content: Text('Code retrieved successfully')),
+        // );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load code')),
+          const SnackBar(content: Text('Failed to load code')),
         );
       }
     } else {
@@ -106,41 +109,58 @@ class SearchScreenState extends State<SearchScreen> {
     }
   }
 
-
   Future<void> _getLUcode(
-      String endpoint, String identifier, int index, bool isOldDevice,apptype, String action) async {
+    String identifier,
+    int index,
+    bool isOldDevice,
+    String apptype,
+    String action,
+  ) async {
+    String endpoint;
+    Map<String, String> body;
+
+    if (isOldDevice && apptype == 'SCAN') {
+      endpoint = 'oldDeviceNotification.php';
+      body = {'phone': identifier, 'action': action};
+    } else if (!isOldDevice && apptype == 'SCAN') {
+      endpoint = 'newdeviceNotification.php';
+      body = {'imei': identifier, 'action': action};
+    } else if (apptype == 'ZT') {
+      endpoint = action == 'LOCK' ? 'testlock.php' : 'testunlock.php';
+      body = {'imei': identifier};
+    } else {
+      throw Exception('Invalid device type or app type');
+    }
+
     final response = await http.post(
       Uri.parse(baseUrl + endpoint),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode(
-          isOldDevice ? {'phone': identifier,'action':action } : {'imei': identifier}),
+      body: jsonEncode(body),
     );
-
     if (response.statusCode == 200) {
       var data = jsonDecode(response.body);
-      print(data);
-      if (data['status'] == 'success') {
+      String status = data['status'] ?? 'failure'; // Initialize 'status'
+      if (status == 'success') {
         setState(() {
           if (isOldDevice) {
-            if (endpoint.contains('oldDeviceNotification')) {
-              print(" old Ulock Code");
-            } else {
-              print(" old Lock");
-            }
+            if (endpoint.contains('oldDeviceNotification')) {}
           } else {
-            if (endpoint.contains('oldDeviceNotification')) {
-              print("new Unlock Code");
-            } else {
-              print("New Lock Code");
-            }
+            if (endpoint.contains('newDeviceNotification')) {}
           }
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Code retrieved successfully')),
-        );
+            endpoint.contains('newDeviceNotification')
+                ? SnackBar(
+                    content: Text(action == "UNLOCK"
+                        ? "New Device Unlock"
+                        : "New Device Lock"))
+                : SnackBar(
+                    content: Text(action == "UNLOCK"
+                        ? "Old Device Unlock"
+                        : "Old  Device Lock")));
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load LOck Ulock code')),
+          const SnackBar(content: Text('Failed to load Lock/Unlock code')),
         );
       }
     } else {
@@ -148,14 +168,20 @@ class SearchScreenState extends State<SearchScreen> {
     }
   }
 
-  void showActionDialog(BuildContext context, int index, bool isOldDevice,
-      String identifier1, String identifire2,apptype,) {
+  void showActionDialog(
+    BuildContext context,
+    int index,
+    bool isOldDevice,
+    String identifier1,
+    String identifire2,
+    apptype,
+  ) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
           backgroundColor: Colors.white,
-          title: Text(
+          title: const Text(
             'Action',
             style: TextStyle(
                 color: Colors.black, fontSize: 19, fontWeight: FontWeight.bold),
@@ -163,7 +189,7 @@ class SearchScreenState extends State<SearchScreen> {
           ),
           content: Padding(
             padding: const EdgeInsets.only(top: 10),
-            child: Container(
+            child: SizedBox(
               width: 350,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -173,6 +199,14 @@ class SearchScreenState extends State<SearchScreen> {
                     children: [
                       ElevatedButton(
                         onPressed: () {
+                          _getLUcode(
+                            // _getEndpoint(isOldDevice, apptype, "LOCK"),
+                            isOldDevice ? identifier1 : identifire2,
+                            index,
+                            isOldDevice,
+                            apptype,
+                            "LOCK",
+                          );
                           Navigator.of(context).pop();
                         },
                         style: ElevatedButton.styleFrom(
@@ -180,10 +214,10 @@ class SearchScreenState extends State<SearchScreen> {
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          padding: EdgeInsets.symmetric(
+                          padding: const EdgeInsets.symmetric(
                               horizontal: 10, vertical: 11),
                         ),
-                        child: Text('Lock',
+                        child: const Text('Lock',
                             style: TextStyle(
                                 fontSize: 14,
                                 color: Colors.white,
@@ -192,12 +226,12 @@ class SearchScreenState extends State<SearchScreen> {
                       ElevatedButton(
                         onPressed: () {
                           _getLUcode(
-                              isOldDevice || apptype == "SCAN"  ? 'oldDeviceNotification.php': apptype == "ZT" ? 'testlock.php':"oldDeviceNotification.php" ,
-                              isOldDevice ? identifier1:identifire2,
-                              index,
-                              isOldDevice,
-                          apptype,
-                            "UNLOCK"
+                            // _getEndpoint(isOldDevice, apptype, "UNLOCK"),
+                            isOldDevice ? identifier1 : identifire2,
+                            index,
+                            isOldDevice,
+                            apptype,
+                            "UNLOCK",
                           );
                           Navigator.of(context).pop();
                         },
@@ -206,10 +240,10 @@ class SearchScreenState extends State<SearchScreen> {
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          padding: EdgeInsets.symmetric(
+                          padding: const EdgeInsets.symmetric(
                               horizontal: 10, vertical: 11),
                         ),
-                        child: Text('Unlock',
+                        child: const Text('Unlock',
                             style: TextStyle(
                                 fontSize: 14,
                                 color: Colors.white,
@@ -217,7 +251,7 @@ class SearchScreenState extends State<SearchScreen> {
                       ),
                     ],
                   ),
-                  SizedBox(height: 24),
+                  const SizedBox(height: 24),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -237,10 +271,10 @@ class SearchScreenState extends State<SearchScreen> {
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          padding: EdgeInsets.symmetric(
+                          padding: const EdgeInsets.symmetric(
                               horizontal: 10, vertical: 11),
                         ),
-                        child: Text('Uninstall Code',
+                        child: const Text('Uninstall Code',
                             style: TextStyle(
                                 fontSize: 13,
                                 color: Colors.white,
@@ -262,10 +296,10 @@ class SearchScreenState extends State<SearchScreen> {
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          padding: EdgeInsets.symmetric(
+                          padding: const EdgeInsets.symmetric(
                               horizontal: 10, vertical: 11),
                         ),
-                        child: Text('Unlock Code',
+                        child: const Text('Unlock Code',
                             style: TextStyle(
                                 fontSize: 13,
                                 color: Colors.white,
@@ -273,47 +307,47 @@ class SearchScreenState extends State<SearchScreen> {
                       ),
                     ],
                   ),
-                  SizedBox(height: 20),
-                  Row(
+                  const SizedBox(height: 20),
+                  const Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      ElevatedButton(
-                        onPressed: () {},
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blueAccent,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          padding:
-                              EdgeInsets.symmetric(horizontal: 8, vertical: 11),
-                        ),
-                        child: Text('Claim',
-                            style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold)),
-                      ),
-                      ElevatedButton(
-                        onPressed: () {
-                          Navigator.of(context).pop();
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          padding:
-                              EdgeInsets.symmetric(horizontal: 8, vertical: 11),
-                        ),
-                        child: Text('Declaim',
-                            style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold)),
-                      ),
+                      // ElevatedButton(
+                      //   onPressed: () {},
+                      //   style: ElevatedButton.styleFrom(
+                      //     backgroundColor: Colors.blueAccent,
+                      //     shape: RoundedRectangleBorder(
+                      //       borderRadius: BorderRadius.circular(8),
+                      //     ),
+                      //     padding:
+                      //         EdgeInsets.symmetric(horizontal: 8, vertical: 11),
+                      //   ),
+                      //   child: Text('Claim',
+                      //       style: TextStyle(
+                      //           fontSize: 14,
+                      //           color: Colors.white,
+                      //           fontWeight: FontWeight.bold)),
+                      // ),
+                      // ElevatedButton(
+                      //   onPressed: () {
+                      //     Navigator.of(context).pop();
+                      //   },
+                      //   style: ElevatedButton.styleFrom(
+                      //     backgroundColor: Colors.green,
+                      //     shape: RoundedRectangleBorder(
+                      //       borderRadius: BorderRadius.circular(8),
+                      //     ),
+                      //     padding:
+                      //         EdgeInsets.symmetric(horizontal: 8, vertical: 11),
+                      //   ),
+                      //   child: Text('Declaim',
+                      //       style: TextStyle(
+                      //           fontSize: 14,
+                      //           color: Colors.white,
+                      //           fontWeight: FontWeight.bold)),
+                      // ),
                     ],
                   ),
-                  SizedBox(height: 20),
+                  const SizedBox(height: 20),
                 ],
               ),
             ),
@@ -324,19 +358,10 @@ class SearchScreenState extends State<SearchScreen> {
   }
 
   Widget _buildDeviceList(List<Device> devices, bool isOldDevice) {
-    if (devices.isEmpty) {
-      return Center(
-        child: Text(
-          'No devices found. Search your devices.',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-        ),
-      );
-    }
-
     return InkWell(
       child: ListView.builder(
         shrinkWrap: true,
-        physics: NeverScrollableScrollPhysics(),
+        physics: const NeverScrollableScrollPhysics(),
         itemCount: devices.length,
         itemBuilder: (context, index) {
           Device device = devices[index];
@@ -346,62 +371,64 @@ class SearchScreenState extends State<SearchScreen> {
               elevation: 4,
               color: Colors.white,
               child: InkWell(
-                onTap: () => showActionDialog(
-                    context, index, isOldDevice, device.mobile, device.imei,device.appType),
+                onTap: () => showActionDialog(context, index, isOldDevice,
+                    device.mobile, device.imei, device.appType),
                 child: ListTile(
                   subtitle: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         "Name ➯ ${device.name}",
-                        style: TextStyle(
+                        style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             color: Colors.blue,
                             fontSize: 17),
                       ),
                       Text(
                         "Number: ${device.mobile}",
-                        style: TextStyle(
+                        style: const TextStyle(
                             color: Colors.black,
                             fontWeight: FontWeight.bold,
                             fontSize: 14),
                       ),
                       Text(
                         "IMEI: ${device.imei}",
-                        style: TextStyle(
+                        style: const TextStyle(
                             color: Colors.black,
                             fontWeight: FontWeight.bold,
                             fontSize: 14),
                       ),
-                      SizedBox(height: 8),
+                      const SizedBox(height: 8),
                       Row(
                         children: [
-                          Text(
+                          const Text(
                             "Uninstall Code: ",
                             style: TextStyle(
-                                color: Colors.black, fontWeight: FontWeight.bold),
+                                color: Colors.black,
+                                fontWeight: FontWeight.bold),
                           ),
                           Text(
                             isOldDevice
                                 ? device.olduninstallcode.toString()
                                 : device.uninstallcode.toString(),
-                            style: TextStyle(
+                            style: const TextStyle(
                                 color: Colors.red, fontWeight: FontWeight.bold),
                           ),
                         ],
                       ),
                       Row(
                         children: [
-                          Text(
+                          const Text(
                             "Unlock Code: ",
                             style: TextStyle(
-                                color: Colors.black, fontWeight: FontWeight.bold),
+                                color: Colors.black,
+                                fontWeight: FontWeight.bold),
                           ),
                           Text(
                             isOldDevice
                                 ? device.oldunlockcode.toString()
                                 : device.unlockcode.toString(),
-                            style: TextStyle(
+                            style: const TextStyle(
                                 color: Colors.red, fontWeight: FontWeight.bold),
                           ),
                         ],
@@ -410,8 +437,13 @@ class SearchScreenState extends State<SearchScreen> {
                   ),
                   trailing: IconButton(
                     onPressed: () => showActionDialog(
-                        context, index, isOldDevice, device.mobile, device.imei,device.appType),
-                    icon: Icon(Icons.more_vert),
+                        context,
+                        index,
+                        isOldDevice,
+                        isOldDevice ? device.mobile : '',
+                        isOldDevice ? '' : device.imei,
+                        device.appType),
+                    icon: const Icon(Icons.more_vert),
                   ),
                 ),
               ),
@@ -424,6 +456,8 @@ class SearchScreenState extends State<SearchScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+    final isPortrait = mediaQuery.orientation == Orientation.portrait;
     return Scaffold(
         appBar: AppBar(
           backgroundColor: Colors.white,
@@ -431,7 +465,7 @@ class SearchScreenState extends State<SearchScreen> {
           title: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              TextBuilder(
+              const TextBuilder(
                 text: "DashBoard",
                 color: Colors.black,
                 fontWeight: FontWeight.bold,
@@ -448,7 +482,7 @@ class SearchScreenState extends State<SearchScreen> {
                     (route) => false,
                   );
                 },
-                icon: Icon(
+                icon: const Icon(
                   Icons.power_settings_new,
                   color: Colors.red,
                   size: 28,
@@ -458,7 +492,7 @@ class SearchScreenState extends State<SearchScreen> {
           ),
         ),
         body: Padding(
-          padding: EdgeInsets.all(12.0),
+          padding: const EdgeInsets.all(12.0),
           child: Column(
             children: [
               Container(
@@ -470,72 +504,109 @@ class SearchScreenState extends State<SearchScreen> {
                       color: Colors.grey.withOpacity(0.5),
                       spreadRadius: 2,
                       blurRadius: 5,
-                      offset: Offset(0, 3), // changes position of shadow
+                      offset: const Offset(0, 3), // changes position of shadow
                     ),
                   ],
                 ),
                 child: TextField(
                   decoration: InputDecoration(
                     hintText: 'Search by IMEI or Phone Number...',
-                    prefixIcon: Icon(Icons.search),
+                    prefixIcon: const Icon(Icons.search),
+                    // errorText: _isValid ? null : 'Please enter a valid 10-digit number',
                     suffixIcon: IconButton(
-                      icon: Icon(Icons.clear),
+                      icon: const Icon(Icons.clear),
                       onPressed: () {
-                        setState(() {});
-                        _searchController.clear();
-                        _searchItems('');
+                        setState(() {
+                          _searchController.clear();
+                          oldDevices.clear();
+                          newDevices.clear();
+                          isLoading = false;
+                        });
                       },
                     ),
                     border: InputBorder.none,
-                    contentPadding:
-                        EdgeInsets.symmetric(vertical: 15.0, horizontal: 20.0),
+                    contentPadding: const EdgeInsets.symmetric(
+                        vertical: 15.0, horizontal: 20.0),
                   ),
                   controller: _searchController,
-                  onChanged: _searchItems,
+                  onChanged: (val) {
+                    _searchItems(val);
+                  },
                 ),
               ),
-              Expanded(
-                child: isLoading
-                    ? Center(child: CircularProgressIndicator())
-                    : SingleChildScrollView(
-                        child: Column(
-                          children: [
-                            if (oldDevices.isNotEmpty)
-                              Column(
+              isFirstVisit
+                  ? const Padding(
+                      padding: EdgeInsets.only(top: 20),
+                      child: Center(
+                          child: TextBuilder(
+                        text: "Serach items  here...",
+                        color: Colors.black,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      )),
+                    )
+                  : Expanded(
+                      child: isLoading
+                          ? const Center(child: CircularProgressIndicator())
+                          : SingleChildScrollView(
+                              child: Column(
                                 children: [
-                                  Padding(
-                                    padding:
-                                        const EdgeInsets.only(left: 12, top: 8),
-                                    child: Text(
-                                      'Old Devices',
-                                      style: TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.bold),
+                                  Visibility(
+                                    visible: oldDevices.isEmpty &&
+                                        newDevices.isEmpty &&
+                                        !isLoading,
+                                    child: const Padding(
+                                      padding: EdgeInsets.only(top: 20),
+                                      child: TextBuilder(
+                                        text:
+                                            "No devices found for the searched no.",
+                                        fontWeight: FontWeight.w600,fontSize: 14,
+                                      ),
                                     ),
                                   ),
-                                  _buildDeviceList(oldDevices, true),
-                                ],
-                              ),
-                            if (newDevices.isNotEmpty)
-                              Column(
-                                children: [
-                                  Padding(
-                                    padding:
-                                        const EdgeInsets.only(left: 12, top: 8),
-                                    child: Text(
-                                      'New Devices',
-                                      style: TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.bold),
+                                  if (oldDevices.isNotEmpty)
+                                    Column(
+                                      children: [
+                                        const Padding(
+                                          padding:
+                                              EdgeInsets.only(left: 12, top: 8),
+                                          child: Text(
+                                            'Old Devices',
+                                            style: TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.bold),
+                                          ),
+                                        ),
+                                        _buildDeviceList(oldDevices, true),
+                                      ],
+                                    ),
+                                  if (newDevices.isNotEmpty)
+                                    Column(
+                                      children: [
+                                        const Padding(
+                                          padding:
+                                              EdgeInsets.only(left: 12, top: 8),
+                                          child: Text(
+                                            'New Devices',
+                                            style: TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.bold),
+                                          ),
+                                        ),
+                                        _buildDeviceList(newDevices, false),
+                                      ],
+                                    ),
+                                  Visibility(
+                                    visible: isFirstVisit,
+                                    child: const TextBuilder(
+                                      text:
+                                          "Please search for a IMEI or phone for the devices by clicking the icon at the top right corner of the screen",
                                     ),
                                   ),
-                                  _buildDeviceList(newDevices, false),
                                 ],
                               ),
-                          ],
-                        ),
-                      ),
-              ),
+                            ),
+                    ),
             ],
           ),
         ));

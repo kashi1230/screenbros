@@ -1,89 +1,70 @@
-// // api_functions.dart
-//
-// import 'dart:convert';
-// import 'package:http/http.dart' as http;
-// import 'package:screenbroz2/api/api_mode.dart';
-//
-// class ApiFunctions {
-//   static Future<void> getUninstallCode(String imei, int index) async {
-//     String baseUrl = 'https://www.screenbros.in/employeeapi/';
-//     try {
-//       final response = await http.post(
-//         Uri.parse(baseUrl + 'generateimeiUninstallCode.php'),
-//         headers: {
-//           'Content-Type': 'application/json',
-//         },
-//         body: jsonEncode({'imei': imei}),
-//       );
-//
-//       if (response.statusCode == 200) {
-//         var data = jsonDecode(response.body);
-//         if (data['status'] == 'success') {
-//           return data['uninstallcode'];
-//         } else {
-//           throw Exception('Failed to generate uninstall code');
-//         }
-//       } else {
-//         throw Exception('Failed to connect to server');
-//       }
-//     } catch (e) {
-//       throw Exception('Failed to get uninstall code: $e');
-//     }
-//   }
-//
-//   static Future<void> getUnlockCode(String imei, int index) async {
-//     String baseUrl = 'https://www.screenbros.in/employeeapi/';
-//     try {
-//       final response = await http.post(
-//         Uri.parse(baseUrl + 'generateimeiUnlockCode.php'),
-//         headers: {
-//           'Content-Type': 'application/json',
-//         },
-//         body: jsonEncode({'imei': imei}),
-//       );
-//
-//       if (response.statusCode == 200) {
-//         var data = jsonDecode(response.body);
-//         if (data['status'] == 'success') {
-//
-//         } else {
-//           throw Exception('Failed to generate unlock code');
-//         }
-//       } else {
-//         throw Exception('Failed to connect to server');
-//       }
-//     } catch (e) {
-//       throw Exception('Failed to get unlock code: $e');
-//     }
-//   }
-//
-//   static Future<void> searchItems(String query, Function(List<Device>, List<Device>) onDataLoaded) async {
-//     String baseUrl = 'https://www.screenbros.in/employeeapi/';
-//     try {
-//       final response = await http.post(
-//         Uri.parse(baseUrl + 'search_device.php'),
-//         headers: {
-//           'Content-Type': 'application/json',
-//         },
-//         body: jsonEncode({'search': query}),
-//       );
-//
-//       if (response.statusCode == 200) {
-//         var data = jsonDecode(response.body);
-//         List<Device> oldDevices = [];
-//         List<Device> newDevices = [];
-//         if (data['old'] != null) {
-//           oldDevices = (data['old'] as List).map((item) => Device.fromJson(item)).toList();
-//         }
-//         if (data['new'] != null) {
-//           newDevices = (data['new'] as List).map((item) => Device.fromJson(item)).toList();
-//         }
-//         onDataLoaded(oldDevices, newDevices);
-//       } else {
-//         throw Exception('Failed to load data');
-//       }
-//     } catch (e) {
-//       throw Exception('Failed to search items: $e');
-//     }
-//   }
-// }
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+
+class DeviceAPIManager {
+  static const String baseUrl = 'https://www.screenbros.in/employeeapi/';
+
+  static Future<Map<String, dynamic>> searchDevices(String query) async {
+    final response = await http.post(
+      Uri.parse(baseUrl + 'search_device.php'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'search': query}),
+    );
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to search devices');
+    }
+  }
+
+  static Future<Map<String, dynamic>> getCode(String endpoint, String identifier, bool isOldDevice) async {
+    final response = await http.post(
+      Uri.parse(baseUrl + endpoint),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(
+          isOldDevice ? {'phone': identifier} : {'imei': identifier}),
+    );
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to load code');
+    }
+  }
+
+  static Future<Map<String, dynamic>> getLUCode(String identifier, bool isOldDevice, String apptype, String action) async {
+    String endpoint = '';
+
+    // Determine endpoint based on conditions
+    if (apptype == 'u') {
+      if (action == 'lock') {
+        endpoint = 'lock_code.php';
+      } else if (action == 'unlock') {
+        endpoint = 'unlock_code.php';
+      }
+    } else if (apptype == 'c') {
+      if (action == 'lock') {
+        endpoint = 'code';
+      } else if (action == 'unlock') {
+        endpoint = 'unlock_code';
+      }
+    }
+
+    Map<String, String> body = {
+      'code': identifier,
+    };
+
+    final response = await http.post(
+      Uri.parse(baseUrl + endpoint),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(body),
+    );
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to load Lock/Unlock code');
+    }
+  }
+}
