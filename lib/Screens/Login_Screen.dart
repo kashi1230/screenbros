@@ -78,7 +78,9 @@ class _LoginScreenState extends State<LoginScreen> {
         print(response.body);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(data['message'])),
+          SnackBar(
+            backgroundColor: Colors.blueAccent,
+              content: TextBuilder(text:data['message'],fontWeight: FontWeight.bold,color: Colors.white,)),
         );
       }
     } else {

@@ -1,34 +1,35 @@
 class Device {
-  String name;
-  String mobile;
-  String imei;
-  int olduninstallcode;
-  int oldunlockcode;
-  int uninstallcode;
+  final String imei;
+  final String name;
+  final String mobile;
   int unlockcode;
-  String appType;
+  int uninstallcode;
+  int oldunlockcode;
+  int olduninstallcode;
+  final String appType;
 
   Device({
+    required this.imei,
     required this.name,
     required this.mobile,
-    required this.imei,
-    required this.olduninstallcode,
-    required this.oldunlockcode,
-    required this.uninstallcode,
     required this.unlockcode,
+    required this.uninstallcode,
+    required this.oldunlockcode,
+    required this.olduninstallcode,
     required this.appType,
+
   });
 
   factory Device.fromJson(Map<String, dynamic> json) {
     return Device(
+      imei: json['imei'],
       name: json['name'],
-      mobile: json['phone'] ?? '',
-      imei: json['imei'] ?? '',
-      olduninstallcode: json['olduninstallcode'] ?? 0,
-      oldunlockcode: json['oldunlockcode'] ?? 0,
-      uninstallcode: json['uninstallcode'] ?? 0,
-      unlockcode: json['unlockcode'] ?? 0,
-      appType: json['apptype'] ?? '',
+      mobile: json['mobile'],
+      appType: json['apptype'],
+      unlockcode: 0,
+      uninstallcode: 0,
+      oldunlockcode: 0,
+      olduninstallcode: 0,
     );
   }
 }
