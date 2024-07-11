@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:screenbroz2/Screens/Login_Screen.dart';
 import 'package:screenbroz2/Widgets/TextBuilder.dart';
 import 'dart:convert';
@@ -504,12 +505,7 @@ class SearchScreenState extends State<SearchScreen> {
                   SharedPreferences prefs =
                   await SharedPreferences.getInstance();
                   await prefs.clear();
-                  Navigator.pop(context);
-                  Navigator.pushAndRemoveUntil(
-                    context,
-                    MaterialPageRoute(builder: (_) => LoginScreen()),
-                        (route) => false,
-                  );
+                  Get.offAll(()=>LoginScreen(),transition: Transition.leftToRight);
                 },
                 icon: Icon(
                   Icons.power_settings_new,
@@ -540,9 +536,10 @@ class SearchScreenState extends State<SearchScreen> {
                 child: TextField(
                   decoration: InputDecoration(
                     hintText: 'Search by IMEI or Phone Number...',
-                    prefixIcon: Icon(Icons.search),
+                    hintStyle: TextStyle(fontWeight: FontWeight.w600,color: Colors.black),
+                    prefixIcon: Icon(Icons.search,color: Colors.black,),
                     suffixIcon: IconButton(
-                      icon: Icon(Icons.clear),
+                      icon: Icon(Icons.clear,color: Colors.black,),
                       onPressed: () {
                         setState(() {});
                         isLoading = true;

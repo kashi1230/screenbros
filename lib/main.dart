@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:screenbroz2/Screens/Login_Screen.dart';
 import 'package:screenbroz2/Screens/serch-screen.dart';
 import 'package:screenbroz2/Screens/splash_screen.dart';
@@ -10,7 +11,7 @@ void main() {
 class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return GetMaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Screenbrozz',
       theme: ThemeData(

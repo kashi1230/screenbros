@@ -1,11 +1,13 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:screenbroz2/Screens/serch-screen.dart';
 import 'package:screenbroz2/Widgets/TextBuilder.dart';
 import 'package:screenbroz2/Widgets/common_widgets.dart';
 import 'package:http/http.dart' as http;
+import 'package:screenbroz2/search-const/const.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -69,12 +71,12 @@ class _LoginScreenState extends State<LoginScreen> {
       print(response.body);
       if (data['status'] == 'success') {
         await _saveUserData(userName.text.trim(), userPassword.text.trim());
-        Navigator.pop(context);
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (_) => SearchScreen()),
-              (route) => false,
-        );
+        Get.offAll(()=>SearchScreen(),transition: Transition.circularReveal);
+        // ScaffoldMessenger.of(context).showSnackBar(
+        //   SnackBar(
+        //       backgroundColor: Colors.blueAccent,
+        //       content: TextBuilder(text:data['message'],fontWeight: FontWeight.bold,color: Colors.white,)),
+        // );
         print(response.body);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -125,21 +127,21 @@ class _LoginScreenState extends State<LoginScreen> {
                       Stack(
                         alignment: Alignment.center,
                         children: [
-                          loginButton(
+                          isLoading?CircularProgressIndicator(color: Colors.blue,):loginButton(
                             ontap: () {
+                              if(_formPageKey.currentState!.validate()){
+                                setState(() {
+                                  isLoading = true;
+                                });
+                                login(context);
+                              }
                               // Set isLoading to true before making the request
-                              setState(() {
-                                isLoading = true;
-                              });
-                              login(context);
                             },
                             width: MediaQuery.of(context).size.width,
                             text: "Login",
                             height: 50.0,
                           ),
                           // Show circular progress indicator based on isLoading flag
-                          if (isLoading)
-                            CircularProgressIndicator(color: Colors.white,),
                         ],
                       ),
                       const SizedBox(height: 20),
@@ -207,7 +209,7 @@ class _LoginScreenState extends State<LoginScreen> {
         _passwordField(),
         TextButton(
           onPressed: _togglePassword,
-          child: TextBuilder(text: _obscureText ? "Show" : "Hide"),
+          child: TextBuilder(text: _obscureText ? "Show" : "Hide",color: Colors.blue,),
         ),
       ],
     );
